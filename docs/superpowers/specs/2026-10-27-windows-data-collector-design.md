@@ -25,11 +25,12 @@ AutoDataCollector/
 │       │   ├── UiAutomationService.cs
 │       │   ├── ISqliteWriter.cs           ← SQLite 写入接口
 │       │   ├── SqliteWriter.cs            ← Channel 队列 + 单写线程
-│       │   ├── IConfigService.cs          ← 配置管理接口
-│       │   ├── ConfigService.cs           ← JSON 配置文件读写
+│       │   ├── IConfigService.cs          ← 配置读写接口（全部走 SQLite）
+│       │   ├── ConfigService.cs           ← 含配置锁前置检查
 │       │   ├── ITrayIconService.cs        ← 托盘图标接口
 │       │   ├── TrayIconService.cs
-│       │   └── IPasswordService.cs        ← 密码验证接口
+│       │   ├── IPasswordService.cs        ← 密码验证接口（存 SQLite）
+│       │   └── PasswordService.cs
 │       ├── Models/                       ← 数据模型
 │       │   ├── CollectionConfig.cs        ← 采集配置
 │       │   ├── ControlRule.cs             ← 单条控件采集规则
@@ -81,9 +82,11 @@ AutoDataCollector/
 | 约束 | 原因 |
 |---|---|
 | **只有一个线程写 SQLite** | 多线程并发写 = `database is locked` |
+| **采集线程运行时禁止改配置** | 配置变更会导致轮询线程行为不确定，通过 `app_state.is_collecting` 强制前置检查 |
 | **不要额外加 Program.cs** | WPF 默认入口 + 自定义 Program = 入口冲突 |
 | **后台线程 try-catch 全包裹** | 采集目标可能随时关闭，线程不能因一次异常就死 |
 | **`Channel<T>` 而非 lock 队列** | 高性能、异步友好、自动背压，比手动加锁安全 |
+| **所有配置存 SQLite，无 JSON 文件** | 避免多源配置漂移，统一通过 `ConfigService` 读写 |
 | **先冻结最小可编译 UI 骨架** | 避免批量铺 XAML 后连续编译错误 |
 
 ---
@@ -253,50 +256,194 @@ PRAGMA busy_timeout = 3000;     -- 其他进程读锁时最多等 3 秒
 ### 3.3 数据库 Schema
 
 ```sql
+-- ============================================================
+-- 系统配置表：访问密码 + 全局参数（只存一行，rowid 固定为 1）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS system_config (
+    rowid INTEGER PRIMARY KEY,             -- 固定 rowid=1
+    password_hash TEXT NOT NULL,           -- SHA256(password + salt)
+    password_salt TEXT NOT NULL,            -- 生成哈希时使用的盐
+    polling_interval_ms INTEGER DEFAULT 1000,  -- 全局采集轮询间隔（毫秒），默认 1000
+    heartbeat_interval_sec INTEGER DEFAULT 30, -- 全局心跳间隔（秒），默认 30
+    auto_start INTEGER DEFAULT 0,          -- 0=不自动启动采集 1=启动时自动开始
+    require_password_on_open INTEGER DEFAULT 1, -- 0=打开免密 1=打开需密码
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO system_config(rowid, password_hash, password_salt, created_at, updated_at)
+VALUES(1, '', '', datetime('now'), datetime('now'));
+
+-- ============================================================
+-- 采集方案表：一个系统可以有多个采集方案（对应不同目标应用）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS collection_scheme (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scheme_id TEXT NOT NULL UNIQUE,        -- 业务 ID（GUID），供 ControlRule 关联
+    scheme_name TEXT NOT NULL,             -- 方案显示名，如"上位机A"、"检测台"
+    window_title_pattern TEXT,             -- 目标窗口标题匹配模式（* 通配符）
+    window_class_name TEXT,                -- 目标窗口类名（备用）
+    is_enabled INTEGER DEFAULT 1,          -- 0=禁用 1=启用
+    is_active INTEGER DEFAULT 0,           -- 0=当前未激活 1=当前激活的采集方案
+    polling_interval_ms INTEGER,           -- 方案级覆盖（NULL 则使用全局）
+    heartbeat_interval_sec INTEGER,         -- 方案级覆盖（NULL 则使用全局）
+    remark TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scheme_active ON collection_scheme(is_active);
+
+-- ============================================================
+-- 控件采集规则表：每条规则属于一个采集方案
+-- ============================================================
+CREATE TABLE IF NOT EXISTS control_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id TEXT NOT NULL UNIQUE,          -- 业务 ID（GUID）
+    scheme_id TEXT NOT NULL,               -- 关联 collection_scheme.scheme_id
+    display_name TEXT NOT NULL,            -- 用户给控件起的名字，如"检测状态"
+    -- 控件定位（多级降级，见 2.2 节）
+    automation_id TEXT,                    -- UIA AutomationId（优先）
+    class_name TEXT,                       -- UIA ClassName + Name 组合（次选）
+    name_match TEXT,
+    win32_class_name TEXT,                 -- Win32 兜底
+    win32_text TEXT,
+    fallback_index INTEGER,                -- 按树路径索引兜底
+    -- 采集内容
+    collect_text INTEGER DEFAULT 1,        -- 0=不采 1=采
+    collect_enabled_state INTEGER DEFAULT 1,
+    collect_visible_state INTEGER DEFAULT 1,
+    -- 触发条件
+    trigger_on_text_change INTEGER DEFAULT 1,
+    trigger_on_enabled_change INTEGER DEFAULT 1,
+    trigger_on_visible_change INTEGER DEFAULT 1,
+    is_enabled INTEGER DEFAULT 1,          -- 0=禁用此规则
+    remark TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (scheme_id) REFERENCES collection_scheme(scheme_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rule_scheme ON control_rule(scheme_id);
+
+-- ============================================================
 -- 主数据表：采集记录（变化触发 + 定时心跳）
+-- ============================================================
 CREATE TABLE IF NOT EXISTS collect_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,           -- ISO-8601 UTC: "2025-01-15T10:30:45.123Z"
+    timestamp TEXT NOT NULL,           -- ISO-8601 UTC
     record_type TEXT NOT NULL,         -- 'change' / 'heartbeat'
-    rule_id TEXT NOT NULL,             -- 关联 ControlRule.RuleId
-    rule_name TEXT NOT NULL,           -- 冗余字段：控件显示名，方便查询
+    scheme_id TEXT NOT NULL,           -- 所属采集方案
+    rule_id TEXT NOT NULL,             -- 关联 control_rule.rule_id
+    rule_name TEXT NOT NULL,           -- 冗余：控件显示名，方便查询
     window_title TEXT,                 -- 采集时目标窗口标题
     text_value TEXT,                   -- 采集到的文本（可空）
     is_enabled INTEGER,                -- 0/1，启用状态（可空）
     is_visible INTEGER,                -- 0/1，可见性（可空）
-    source TEXT,                       -- 'UIA' / 'Win32'，标识采集方式
-    diff_fields TEXT                   -- 仅 change 记录：JSON 数组，哪些字段变了 ["is_enabled"]
+    source TEXT,                       -- 'UIA' / 'Win32' / 'NotFound'
+    diff_fields TEXT,                  -- 仅 change 记录：JSON 数组
+    FOREIGN KEY (scheme_id) REFERENCES collection_scheme(scheme_id),
+    FOREIGN KEY (rule_id) REFERENCES control_rule(rule_id)
 );
-
--- 索引
 CREATE INDEX IF NOT EXISTS idx_collect_log_timestamp ON collect_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_collect_log_rule_id ON collect_log(rule_id);
 CREATE INDEX IF NOT EXISTS idx_collect_log_type ON collect_log(record_type);
+CREATE INDEX IF NOT EXISTS idx_collect_log_scheme ON collect_log(scheme_id);
 
--- 应用状态表：只存一行，记录运行元信息
+-- ============================================================
+-- 应用运行状态表：只存一行，采集线程运行时动态更新
+-- ============================================================
 CREATE TABLE IF NOT EXISTS app_state (
-    rowid INTEGER PRIMARY KEY,         -- 固定 rowid=1
-    last_heartbeat TEXT,               -- 最后一次心跳时间
-    target_window_title TEXT,          -- 最后检测到的目标窗口标题
-    is_collecting INTEGER DEFAULT 1,   -- 1=采集中 0=已暂停
-    last_error TEXT                    -- 最近一次错误信息（调试用）
+    rowid INTEGER PRIMARY KEY,             -- 固定 rowid=1
+    is_collecting INTEGER DEFAULT 0,       -- 0=已停止 1=采集中
+    is_config_locked INTEGER DEFAULT 0,    -- 0=配置可改 1=配置锁定（采集中）
+    active_scheme_id TEXT,                 -- 当前激活的方案
+    last_heartbeat TEXT,                   -- 最后一次心跳时间
+    target_window_title TEXT,              -- 最后检测到的目标窗口标题
+    last_error TEXT,                       -- 最近一次错误信息
+    started_at TEXT,                       -- 本次采集启动时间
+    updated_at TEXT NOT NULL
 );
-INSERT OR IGNORE INTO app_state(rowid, is_collecting) VALUES(1, 1);
+INSERT OR IGNORE INTO app_state(rowid, is_collecting, is_config_locked, updated_at)
+VALUES(1, 0, 0, datetime('now'));
 ```
+
+**关键变更说明**：
+
+- 原来的 JSON 配置文件彻底取消，所有配置（系统密码、采集方案、控件规则）全部存 SQLite
+- `app_state.is_config_locked` 是配置锁标记：**采集线程运行期间 = 1，配置读写禁止写入操作**；停止时 = 0，才允许增删改配置
+- 系统首次启动时密码为空字符串，用户在主界面 → 设置里设置密码后写入 `system_config`
+- `scheme_id` / `rule_id` 字段统一用 GUID 字符串做主键关联，内部 `id`（INTEGER）只用于自增排序
 
 ### 3.4 数据模型
 
 ```csharp
-// 投递到 Channel 的统一消息类型
+// ---- 数据库持久化模型（直接映射表）----
+
+public class SystemConfig
+{
+    public string PasswordHash { get; set; } = "";
+    public string PasswordSalt { get; set; } = "";
+    public int PollingIntervalMs { get; set; } = 1000;
+    public int HeartbeatIntervalSec { get; set; } = 30;
+    public bool AutoStart { get; set; }
+    public bool RequirePasswordOnOpen { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class CollectionScheme
+{
+    public string SchemeId { get; set; } = Guid.NewGuid().ToString();
+    public string SchemeName { get; set; } = "";
+    public string? WindowTitlePattern { get; set; }
+    public string? WindowClassName { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public bool IsActive { get; set; }
+    public int? PollingIntervalMs { get; set; }      // NULL 则用全局
+    public int? HeartbeatIntervalSec { get; set; }   // NULL 则用全局
+    public string? Remark { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    // 导航属性
+    public List<ControlRule> Rules { get; set; } = new();
+}
+
+public class ControlRule
+{
+    public string RuleId { get; set; } = Guid.NewGuid().ToString();
+    public string SchemeId { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    // 定位标识（多级降级）
+    public string? AutomationId { get; set; }
+    public string? ClassName { get; set; }
+    public string? NameMatch { get; set; }
+    public string? Win32ClassName { get; set; }
+    public string? Win32Text { get; set; }
+    public int? FallbackIndex { get; set; }
+    // 采集内容
+    public bool CollectText { get; set; } = true;
+    public bool CollectEnabledState { get; set; } = true;
+    public bool CollectVisibleState { get; set; } = true;
+    // 触发条件
+    public bool TriggerOnTextChange { get; set; } = true;
+    public bool TriggerOnEnabledChange { get; set; } = true;
+    public bool TriggerOnVisibleChange { get; set; } = true;
+    public bool IsEnabled { get; set; } = true;
+    public string? Remark { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+// ---- 投递到 SqliteWriter Channel 的消息 ----
+
 public abstract class DbMessage
 {
     public DateTime Timestamp { get; } = DateTime.UtcNow;
 }
 
-// 单条采集记录（变化或心跳）
+// 采集记录（变化触发 / 定时心跳）
 public class CollectRecordMessage : DbMessage
 {
     public required RecordType RecordType { get; init; }
+    public required string SchemeId { get; init; }
     public required string RuleId { get; init; }
     public required string RuleName { get; init; }
     public string? WindowTitle { get; init; }
@@ -304,14 +451,17 @@ public class CollectRecordMessage : DbMessage
     public bool? IsEnabled { get; init; }
     public bool? IsVisible { get; init; }
     public UiaSource Source { get; init; }
-    public List<string>? DiffFields { get; init; } // 仅 change 记录
+    public List<string>? DiffFields { get; init; }
 }
 
-// 应用状态更新（心跳时顺便更新）
+// 应用运行状态更新
 public class AppStateMessage : DbMessage
 {
-    public string? TargetWindowTitle { get; init; }
     public bool? IsCollecting { get; init; }
+    public bool? IsConfigLocked { get; init; }   // 采集线程启停时顺带更新
+    public string? ActiveSchemeId { get; init; }
+    public string? LastHeartbeat { get; init; }
+    public string? TargetWindowTitle { get; init; }
     public string? LastError { get; init; }
 }
 
@@ -319,7 +469,75 @@ public enum RecordType { Change, Heartbeat }
 public enum UiaSource { Uia, Win32, NotFound }
 ```
 
-### 3.5 SqliteWriter 写入队列架构
+### 3.5 配置锁机制（关键约束）
+
+```
+配置写操作前置检查流程：
+
+用户在 UI 上点"保存配置 / 添加规则 / 修改密码"
+    │
+    ▼
+IConfigService.TryXxxAsync(...) / IPasswordService.TryChangePasswordAsync(...)
+    │
+    ▼
+ ┌───────────────────────────────────┐
+ │ 读取 app_state.is_collecting     │  ← 同步读，走独立只读连接
+ │                                   │
+ │ 如果 is_collecting == true        │
+ │   → throw InvalidOperationException│
+ │     ("采集中，不能修改配置")        │
+ │   → UI 弹出 Toast 提示             │
+ │                                   │
+ │ 如果 is_collecting == false       │
+ │   → 继续写入 Channel               │
+ └───────────────────────────────────┘
+
+采集线程启动 / 停止时：
+  启动 → 写入 AppStateMessage { IsCollecting = true, IsConfigLocked = true }
+  停止 → 写入 AppStateMessage { IsCollecting = false, IsConfigLocked = false }
+```
+
+**设计结论**：
+- 配置读操作**无限制**（采集中也能看）
+- 配置写操作**强制先查锁**，锁由采集线程的启停状态驱动
+- 读取 `is_collecting` 用独立只读 SQLite 连接（不走 Channel），因为它非常轻量（单行查询），且 Channel 可能有背压延迟
+- `is_config_locked` 字段和 `is_collecting` 在同一条 `AppStateMessage` 中一起写入，保持强一致
+
+### 3.6 ConfigService & IPasswordService 接口
+
+```csharp
+public interface IConfigService
+{
+    // 读操作（采集中也可调用）
+    Task<SystemConfig> GetSystemConfigAsync();
+    Task<List<CollectionScheme>> GetAllSchemesAsync();
+    Task<CollectionScheme?> GetSchemeAsync(string schemeId);
+    Task<List<ControlRule>> GetRulesBySchemeAsync(string schemeId);
+    Task<(bool isCollecting, bool isConfigLocked)> GetRunStateAsync();
+
+    // 写操作（采集中调用会抛异常）
+    Task AddSchemeAsync(CollectionScheme scheme);
+    Task UpdateSchemeAsync(CollectionScheme scheme);
+    Task DeleteSchemeAsync(string schemeId);
+    Task ActivateSchemeAsync(string schemeId);
+    Task AddRuleAsync(ControlRule rule);
+    Task UpdateRuleAsync(ControlRule rule);
+    Task DeleteRuleAsync(string ruleId);
+    Task UpdateSystemConfigAsync(SystemConfig config);
+}
+
+public interface IPasswordService
+{
+    // 验证（主界面打开时调用）
+    Task<bool> VerifyAsync(string inputPassword);
+    // 修改（采集中抛异常）
+    Task ChangePasswordAsync(string oldPassword, string newPassword);
+    // 是否首次启动（密码为空）
+    Task<bool> IsFirstTimeSetupAsync();
+}
+```
+
+### 3.7 SqliteWriter 写入队列架构
 
 ```
 生产者们（多个线程）
@@ -356,7 +574,7 @@ public enum UiaSource { Uia, Win32, NotFound }
  └──────────────────────┘
 ```
 
-### 3.6 SqliteWriter 伪代码
+### 3.8 SqliteWriter 伪代码
 
 ```csharp
 public class SqliteWriter : ISqliteWriter, IAsyncDisposable
@@ -431,7 +649,7 @@ public class SqliteWriter : ISqliteWriter, IAsyncDisposable
 }
 ```
 
-### 3.7 性能预期
+### 3.9 性能预期
 
 | 指标 | 预估值 | 说明 |
 |---|---|---|
