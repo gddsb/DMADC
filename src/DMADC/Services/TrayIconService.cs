@@ -1,17 +1,33 @@
 using System;
 using System.Drawing;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace DMADC.Services;
 
 /// <summary>
 /// 基于 System.Windows.Forms.NotifyIcon 的托盘实现
+/// 图标：优先从 exe 嵌入的 ApplicationIcon 提取，失败时从 Assets/app.ico 读取
 /// </summary>
 public class TrayIconService : ITrayIconService
 {
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int ExtractIconEx(string lpszFile, int nIconIndex,
+        out IntPtr phiconLarge, out IntPtr phiconSmall, int nIcons);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetModuleHandle(string? lpModuleName);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
     private readonly NotifyIcon _notify;
     private readonly ToolStripMenuItem _startItem;
     private readonly ToolStripMenuItem _stopItem;
+    private readonly Icon _trayIcon;
 
     public event EventHandler? ShowMainWindowRequested;
     public event EventHandler? StartCollectRequested;
@@ -20,9 +36,11 @@ public class TrayIconService : ITrayIconService
 
     public TrayIconService()
     {
+        _trayIcon = LoadApplicationIcon();
+
         _notify = new NotifyIcon
         {
-            Icon = SystemIcons.Application, // TODO: 替换为项目自定义图标
+            Icon = _trayIcon,
             Visible = false,
             Text = "DMADC - 数据采集监控"
         };
@@ -53,6 +71,51 @@ public class TrayIconService : ITrayIconService
         _notify.DoubleClick += (_, _) => ShowMainWindowRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// 加载图标：优先级 ExtractIconEx（从 exe ApplicationIcon）→ Assets/app.ico 文件 → 系统默认
+    /// </summary>
+    private static Icon LoadApplicationIcon()
+    {
+        try
+        {
+            string exePath = Environment.ProcessPath
+                ?? Assembly.GetExecutingAssembly().Location;
+
+            if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+            {
+                if (ExtractIconFromExe(exePath, out var hSmall) && hSmall != IntPtr.Zero)
+                {
+                    try { return (Icon)Icon.FromHandle(hSmall).Clone(); }
+                    finally { DestroyIcon(hSmall); }
+                }
+            }
+        }
+        catch { }
+
+        // 回退：从 Assets 目录读取 .ico
+        try
+        {
+            string assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
+            if (File.Exists(assetPath))
+                return new Icon(assetPath);
+        }
+        catch { }
+
+        // 最终兜底
+        return SystemIcons.Application;
+    }
+
+    private static bool ExtractIconFromExe(string exePath, out IntPtr hSmall)
+    {
+        hSmall = IntPtr.Zero;
+        try
+        {
+            int count = ExtractIconEx(exePath, 0, out _, out hSmall, 1);
+            return count > 0;
+        }
+        catch { return false; }
+    }
+
     public void Show() { _notify.Visible = true; }
     public void Hide() { _notify.Visible = false; }
 
@@ -72,5 +135,6 @@ public class TrayIconService : ITrayIconService
     {
         _notify.Visible = false;
         _notify.Dispose();
+        _trayIcon.Dispose();
     }
 }
