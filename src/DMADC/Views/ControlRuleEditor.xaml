@@ -1,0 +1,56 @@
+<Window x:Class="DMADC.Views.ControlRuleEditor"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="编辑控件规则" Height="440" Width="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <StackPanel Margin="16">
+        <TextBlock Text="基本信息" FontWeight="Bold" Margin="0,0,0,4"/>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="控件显示名：" Width="110" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtDisplayName" Width="260"/>
+        </StackPanel>
+        <CheckBox x:Name="ChkRuleEnabled" Content="启用此规则" IsChecked="True" Margin="114,4,0,0"/>
+
+        <TextBlock Text="定位标识（按优先级从高到低尝试）" FontWeight="Bold" Margin="0,16,0,4"/>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="① AutomationId：" Width="110" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtAutomationId" Width="260"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="② ClassName：" Width="110" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtClassName" Width="120"/>
+            <TextBlock Text="Name 匹配：" Width="68" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <TextBox x:Name="TxtNameMatch" Width="116"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="③ Win32 类名：" Width="110" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtWin32Class" Width="120"/>
+            <TextBlock Text="Win32 文本：" Width="68" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <TextBox x:Name="TxtWin32Text" Width="116"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="④ Fallback 索引：" Width="110" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtFallbackIndex" Width="60"/>
+            <TextBlock Text="（找不到其他标识时用控件树路径索引）" Foreground="Gray" VerticalAlignment="Center" Margin="8,0,0,0"/>
+        </StackPanel>
+
+        <TextBlock Text="采集内容" FontWeight="Bold" Margin="0,16,0,4"/>
+        <UniformGrid Columns="3">
+            <CheckBox x:Name="ChkCollectText" Content="采集文本" IsChecked="True"/>
+            <CheckBox x:Name="ChkCollectEnabled" Content="采集启用状态" IsChecked="True"/>
+            <CheckBox x:Name="ChkCollectVisible" Content="采集可见性" IsChecked="True"/>
+        </UniformGrid>
+
+        <TextBlock Text="触发条件（哪些字段变化会记录）" FontWeight="Bold" Margin="0,16,0,4"/>
+        <UniformGrid Columns="3">
+            <CheckBox x:Name="ChkTrigText" Content="文本变化触发" IsChecked="True"/>
+            <CheckBox x:Name="ChkTrigEnabled" Content="启用状态变化触发" IsChecked="True"/>
+            <CheckBox x:Name="ChkTrigVisible" Content="可见性变化触发" IsChecked="True"/>
+        </UniformGrid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="取消" Width="80" Height="28" Margin="0,0,8,0" Click="BtnCancel_Click"/>
+            <Button Content="保存" Width="80" Height="28" Click="BtnSave_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
