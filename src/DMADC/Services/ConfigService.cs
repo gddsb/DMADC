@@ -12,10 +12,12 @@ namespace DMADC.Services;
 public class ConfigService : IConfigService
 {
     private readonly DbReadConnection _db;
+    private readonly string _dbPath;
 
-    public ConfigService(DbReadConnection db)
+    public ConfigService(DbReadConnection db, string dbPath)
     {
         _db = db;
+        _dbPath = dbPath;
     }
 
     /// <summary>采集中写配置时抛出</summary>
@@ -203,11 +205,11 @@ public class ConfigService : IConfigService
 
     // ====== helpers ======
 
-    private static SqliteConnection OpenWriteConnection()
+    private SqliteConnection OpenWriteConnection()
     {
         var builder = new SqliteConnectionStringBuilder
         {
-            DataSource = AppContext.GetData("dbPath") as string ?? throw new InvalidOperationException("dbPath 未配置"),
+            DataSource = _dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Pooling = false
         };

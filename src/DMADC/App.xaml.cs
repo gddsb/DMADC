@@ -21,12 +21,11 @@ public partial class App : Application
             "DMADC");
         Directory.CreateDirectory(dbDir);
         string dbPath = Path.Combine(dbDir, "dmadc.db");
-        AppContext.SetData("dbPath", dbPath);
 
         // 初始化服务
         var dbRead = new DbReadConnection(dbPath);
         var sqliteWriter = new SqliteWriter(dbPath);
-        var config = new ConfigService(dbRead);
+        var config = new ConfigService(dbRead, dbPath);
         var password = new PasswordService(dbRead, config);
         var uia = new UiAutomationService();
         var collection = new DataCollectionService(config, uia, sqliteWriter);
