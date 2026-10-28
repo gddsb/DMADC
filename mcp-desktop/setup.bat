@@ -1,91 +1,84 @@
 @echo off
-chcp 65001 >nul
-title DMADC Windows 桌面 MCP Server — 一键安装
 REM =============================================================
-REM 双击运行即可：自动检查 Python、安装依赖
-REM 完成后按照提示配置 Trae 的 mcp.json
+REM DMADC Windows Desktop MCP Server - One-click installer
+REM Double-click to run. Auto-checks Python, installs deps.
 REM =============================================================
+
+REM --- Switch to the script's own directory (robust against spaces/paths) ---
+cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo    DMADC Windows 桌面控制 MCP Server - 一键安装
+echo    DMADC Windows Desktop MCP Server - Setup
 echo ============================================================
 echo.
 
-REM ── 1. 检查 Python ─────────────────────────────────────────
+REM --- 1. Check Python ---
 where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [错误] 未检测到 Python，请先安装 Python 3.10+
-    echo        下载地址: https://www.python.org/downloads/
-    echo        安装时请勾选 "Add Python to PATH"
+if errorlevel 1 (
+    echo [ERROR] Python not found. Please install Python 3.10+
+    echo         Download: https://www.python.org/downloads/
+    echo         During install, CHECK "Add Python to PATH"
     pause
     exit /b 1
 )
 
-for /f "delims=" %%v in ('python --version 2^>^&1') do set PYVER=%%v
-echo [OK] 检测到 %PYVER%
+for /f "tokens=*" %%v in ('python --version 2^>^&1') do set PYVER=%%v
+echo [OK] Found %PYVER%
 
-REM ── 2. 升级 pip ──────────────────────────────────────────
+REM --- 2. Upgrade pip ---
 echo.
-echo [1/3] 升级 pip ...
+echo [1/3] Upgrading pip ...
 python -m pip install --upgrade pip -q
 
-REM ── 3. 安装依赖 ──────────────────────────────────────────
+REM --- 3. Install dependencies ---
 echo.
-echo [2/3] 安装 MCP Server 依赖（可能需要 1-2 分钟）...
-pip install -r "%~dp0requirements.txt"
-if %errorlevel% neq 0 (
+echo [2/3] Installing MCP Server dependencies (1-2 min) ...
+if not exist requirements.txt (
+    echo [ERROR] requirements.txt not found in "%cd%"
+    pause
+    exit /b 1
+)
+pip install -r requirements.txt
+if errorlevel 1 (
     echo.
-    echo [错误] 依赖安装失败，请检查网络后重试
+    echo [ERROR] Dependency install failed. Check network then retry.
     pause
     exit /b 1
 )
 
-REM ── 4. 验证导入 ──────────────────────────────────────────
+REM --- 4. Verify ---
 echo.
-echo [3/3] 验证 MCP Server ...
-python -c "from mcp_desktop import mcp; print('  [OK] mcp_desktop 加载成功')" 2>nul
-if %errorlevel% neq 0 (
-    echo  [警告] 直接导入失败，尝试用 python -m 方式...
-    cd /d "%~dp0"
-    python -c "import mcp_desktop; print('  [OK] mcp_desktop 加载成功')"
+echo [3/3] Verifying MCP Server ...
+python -c "import mcp_desktop; print('  [OK] mcp_desktop loaded')" 2>nul
+if errorlevel 1 (
+    echo [WARN] Import test failed. Check that requirements installed cleanly.
 )
 
 echo.
 echo ============================================================
-echo    ✅ 安装完成！
+echo    Setup complete !
 echo ============================================================
 echo.
-echo    下一步：在 Trae 里配置 MCP Server
+echo    Next step: configure Trae MCP Server
 echo.
-echo    方式 A（IDE 界面操作）：
-echo      设置 -^> MCP -^> 添加 -^> 手动添加
-echo      粘贴下方 JSON 配置
-echo.
-echo    方式 B（直接写配置文件）：
-echo      打开文件  %APPDATA%\Trae\User\settings\mcp.json
-echo      追加下面这段 JSON 到 mcpServers 对象里
+echo    In Trae, open Settings - MCP - Add - Manual, then paste:
 echo.
 
-REM ── 5. 生成建议的 mcp.json 片段 ────────────────────────────
-set "HERE=%~dp0"
-set "HERE=%HERE:\=/%"
-echo    建议的 mcp.json 配置片段：
-echo.
+REM --- 5. Build the mcp.json snippet (normalize backslashes to forward slashes) ---
+set "HERE=%cd:\=/%"
 echo    {
 echo      "mcpServers": {
 echo        "windows-desktop": {
 echo          "command": "python",
-echo          "args": ["%HERE%mcp_desktop.py"],
-echo          "env": {
-echo            "PYTHONUNBUFFERED": "1"
-echo          }
+echo          "args": ["%HERE%/mcp_desktop.py"],
+echo          "env": { "PYTHONUNBUFFERED": "1" }
 echo        }
 echo      }
 echo    }
 echo.
-echo    注意：如果上面路径有空格，请改用短路径（8.3）
-echo    或者用 pyinstaller 打包成 exe（见 README）
+echo    Save it, Trae will auto-connect.
+echo    Note: path with spaces works fine in JSON.
 echo.
 
 pause
