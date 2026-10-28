@@ -42,7 +42,7 @@ public partial class ControlPicker : Window
         }
         else if (e.Key == Key.F1 && !_isPicking)
         {
-            BtnStartPick_Click(this, RoutedEventArgs.Empty);
+            StartPicking();
             e.Handled = true;
         }
     }

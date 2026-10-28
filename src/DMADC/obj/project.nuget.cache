@@ -1,17 +1,48 @@
 {
   "version": 2,
-  "dgSpecHash": "b06tbPhheLjir4KAoJjvl30OOAtBM7EJZqP9/T5ZN+lM5iPyq1D7RKUQeeyL1Kno9/OBYBh1vN8bihXSSmgSrA==",
-  "success": true,
-  "projectFilePath": "/workspace/src/DMADC/DMADC.csproj",
+  "dgSpecHash": "j9iBatnX5VA=",
+  "success": false,
+  "projectFilePath": "Z:\\workspace\\src\\DMADC\\DMADC.csproj",
   "expectedPackageFiles": [
-    "/root/.nuget/packages/microsoft.data.sqlite/8.0.0/microsoft.data.sqlite.8.0.0.nupkg.sha512",
-    "/root/.nuget/packages/microsoft.data.sqlite.core/8.0.0/microsoft.data.sqlite.core.8.0.0.nupkg.sha512",
-    "/root/.nuget/packages/sqlitepclraw.bundle_e_sqlite3/2.1.6/sqlitepclraw.bundle_e_sqlite3.2.1.6.nupkg.sha512",
-    "/root/.nuget/packages/sqlitepclraw.core/2.1.6/sqlitepclraw.core.2.1.6.nupkg.sha512",
-    "/root/.nuget/packages/sqlitepclraw.lib.e_sqlite3/2.1.6/sqlitepclraw.lib.e_sqlite3.2.1.6.nupkg.sha512",
-    "/root/.nuget/packages/sqlitepclraw.provider.e_sqlite3/2.1.6/sqlitepclraw.provider.e_sqlite3.2.1.6.nupkg.sha512",
-    "/root/.nuget/packages/system.memory/4.5.3/system.memory.4.5.3.nupkg.sha512",
-    "/root/.nuget/packages/microsoft.windowsdesktop.app.ref/8.0.32/microsoft.windowsdesktop.app.ref.8.0.32.nupkg.sha512"
+    "C:\\users\\root\\.nuget\\packages\\microsoft.data.sqlite\\8.0.0\\microsoft.data.sqlite.8.0.0.nupkg.sha512",
+    "C:\\users\\root\\.nuget\\packages\\microsoft.data.sqlite.core\\8.0.0\\microsoft.data.sqlite.core.8.0.0.nupkg.sha512"
   ],
-  "logs": []
+  "logs": [
+    {
+      "code": "NU1100",
+      "level": "Error",
+      "message": "Unable to resolve 'SQLitePCLRaw.bundle_e_sqlite3 (>= 2.1.6)' for 'net8.0-windows7.0'.",
+      "libraryId": "SQLitePCLRaw.bundle_e_sqlite3",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1100",
+      "level": "Error",
+      "message": "Unable to resolve 'SQLitePCLRaw.core (>= 2.1.6)' for 'net8.0-windows7.0'.",
+      "libraryId": "SQLitePCLRaw.core",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    },
+    {
+      "code": "NU1100",
+      "level": "Error",
+      "message": "Unable to resolve 'SQLitePCLRaw.bundle_e_sqlite3 (>= 2.1.6)' for 'net8.0-windows7.0/win-x64'.",
+      "libraryId": "SQLitePCLRaw.bundle_e_sqlite3",
+      "targetGraphs": [
+        "net8.0-windows7.0/win-x64"
+      ]
+    },
+    {
+      "code": "NU1100",
+      "level": "Error",
+      "message": "Unable to resolve 'SQLitePCLRaw.core (>= 2.1.6)' for 'net8.0-windows7.0/win-x64'.",
+      "libraryId": "SQLitePCLRaw.core",
+      "targetGraphs": [
+        "net8.0-windows7.0/win-x64"
+      ]
+    }
+  ]
 }

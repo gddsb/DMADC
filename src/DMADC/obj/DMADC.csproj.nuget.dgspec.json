@@ -1,27 +1,24 @@
 {
   "format": 1,
   "restore": {
-    "/workspace/src/DMADC/DMADC.csproj": {}
+    "Z:\\workspace\\src\\DMADC\\DMADC.csproj": {}
   },
   "projects": {
-    "/workspace/src/DMADC/DMADC.csproj": {
+    "Z:\\workspace\\src\\DMADC\\DMADC.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/workspace/src/DMADC/DMADC.csproj",
+        "projectUniqueName": "Z:\\workspace\\src\\DMADC\\DMADC.csproj",
         "projectName": "DMADC",
-        "projectPath": "/workspace/src/DMADC/DMADC.csproj",
-        "packagesPath": "/root/.nuget/packages/",
-        "outputPath": "/workspace/src/DMADC/obj/",
+        "projectPath": "Z:\\workspace\\src\\DMADC\\DMADC.csproj",
+        "packagesPath": "C:\\users\\root\\.nuget\\packages\\",
+        "outputPath": "Z:\\workspace\\src\\DMADC\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/root/.nuget/NuGet/NuGet.Config"
+          "C:\\users\\root\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0-windows"
         ],
-        "sources": {
-          "https://api.nuget.org/v3/index.json": {}
-        },
         "frameworks": {
           "net8.0-windows7.0": {
             "targetAlias": "net8.0-windows",
@@ -32,6 +29,11 @@
           "warnAsError": [
             "NU1605"
           ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
         }
       },
       "frameworks": {
@@ -54,12 +56,6 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[8.0.32, 8.0.32]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
@@ -68,7 +64,12 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/8.0.132/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "Z:\\tmp\\win-sdk\\sdk\\8.0.403/PortableRuntimeIdentifierGraph.json"
+        }
+      },
+      "runtimes": {
+        "win-x64": {
+          "#import": []
         }
       }
     }
