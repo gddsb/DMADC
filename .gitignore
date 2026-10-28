@@ -1,7 +1,52 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vsconfig
+
+# Rider
+.idea/
+*.sln.iml
+
+# Build tools
+*.csproj.user
+*.csproj.bak
+
+# NuGet
+packages/
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Publish
+publish/
+[Pp]ublish/
+
+# Win / Mac / Linux
+Thumbs.db
+.DS_Store
+
+# Logs / Env
+*.log
+.env
+*.tmp
+
+# OS
 node_modules/
 target/
 __pycache__/
-.env
-dist/
-*.log
-.DS_Store
