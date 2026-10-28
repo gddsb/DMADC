@@ -1,10 +1,10 @@
 # DMADC Windows 桌面控制 MCP Server 依赖
 # Python 3.10+
 
-mcp>=1.2.0           # 官方 MCP Python SDK（FastMCP）
-pyautogui>=0.9.54    # 鼠标键盘控制
-pygetwindow>=0.0.9   # 窗口管理
-pyperclip>=1.9.0     # 剪贴板（中文输入）
-Pillow>=10.0.0       # 截屏保存
-pywin32>=306         # win32gui / win32process
-psutil>=5.9.0        # 进程管理
+mcp>=1.2.0,<2.0.0   # FastMCP API 在 2.x 被改名为 MCPServer，锁在 1.x 稳定版
+pyautogui>=0.9.54   # 鼠标键盘控制
+pygetwindow>=0.0.9  # 窗口管理
+pyperclip>=1.9.0    # 剪贴板（中文输入）
+Pillow>=10.0.0      # 截屏保存
+pywin32>=306        # win32gui / win32process
+psutil>=5.9.0       # 进程管理

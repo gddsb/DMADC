@@ -41,7 +41,18 @@ import base64
 import tempfile
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+# mcp 1.x 和 2.x 的 API 不一样，两个都兼容
+try:
+    from mcp.server.fastmcp import FastMCP as _MCPServer  # mcp 1.x
+except ImportError:
+    try:
+        from mcp.server.fastmcp import MCPServer as _MCPServer  # mcp 2.x renamed
+    except ImportError:
+        # 终极兜底：直接从 mcp.server 拿
+        from mcp.server import Server as _MCPServer  # type: ignore
+
+# FastMCP 别名，让后续代码不动
+FastMCP = _MCPServer
 
 # Windows-only 依赖（非 Windows 上会 ImportError，让它在 tool 调用时报友好错误）
 _IS_WINDOWS = sys.platform.startswith("win")
