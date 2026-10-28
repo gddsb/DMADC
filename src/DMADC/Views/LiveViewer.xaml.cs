@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 using DMADC.Models;
 
+using UserControl = System.Windows.Controls.UserControl;
+
 namespace DMADC.Views;
 
 public partial class LiveViewer : UserControl

@@ -40,6 +40,9 @@ public static class Win32Interop
     public const uint WM_GETTEXTLENGTH = 0x000E;
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, StringBuilder lParam);
 
     [DllImport("user32.dll")]

@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using DMADC.Services;
 
+using MessageBox = System.Windows.MessageBox;
+
 namespace DMADC.Views;
 
 public partial class PasswordDialog : Window

@@ -7,6 +7,9 @@ using System.Windows.Automation;
 using DMADC.Helpers;
 using DMADC.Models;
 
+using Point = System.Windows.Point;
+using Condition = System.Windows.Automation.Condition;
+
 namespace DMADC.Services;
 
 /// <summary>
@@ -289,15 +292,5 @@ public class UiAutomationService : IUiAutomationService
             return !int.Equals(ct.Id, ControlType.Custom.Id);
         }
         catch { return true; }
-    }
-}
-
-// Win32Interop 缺少 GetClassName，补一个
-namespace DMADC.Helpers
-{
-    public static partial class Win32Interop
-    {
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-        public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
     }
 }

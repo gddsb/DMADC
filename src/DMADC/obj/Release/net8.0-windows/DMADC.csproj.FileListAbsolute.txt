@@ -1,0 +1,6 @@
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.csproj.AssemblyReference.cache
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.GeneratedMSBuildEditorConfig.editorconfig
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.AssemblyInfoInputs.cache
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.AssemblyInfo.cs
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.csproj.CoreCompileInputs.cache
+/workspace/src/DMADC/obj/Release/net8.0-windows/DMADC.sourcelink.json

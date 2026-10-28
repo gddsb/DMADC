@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using DMADC.Services;
 
+using Application = System.Windows.Application;
+
 namespace DMADC;
 
 public partial class App : Application

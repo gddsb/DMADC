@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Automation;
 using DMADC.Models;
 
+using Point = System.Windows.Point;
+
 namespace DMADC.Services;
 
 /// <summary>

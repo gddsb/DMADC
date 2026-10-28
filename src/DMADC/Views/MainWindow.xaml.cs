@@ -5,6 +5,8 @@ using System.Windows;
 using DMADC.Models;
 using DMADC.Services;
 
+using MessageBox = System.Windows.MessageBox;
+
 namespace DMADC.Views;
 
 public partial class MainWindow : Window

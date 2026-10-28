@@ -2,6 +2,8 @@ using System;
 using System.Windows;
 using DMADC.Models;
 
+using MessageBox = System.Windows.MessageBox;
+
 namespace DMADC.Views;
 
 public partial class ControlRuleEditor : Window
